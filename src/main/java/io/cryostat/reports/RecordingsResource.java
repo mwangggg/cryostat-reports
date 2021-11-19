@@ -5,6 +5,7 @@ import java.io.InputStream;
 
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
+import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -36,6 +37,11 @@ public class RecordingsResource {
         this.otel = otel;
         this.tracer = otel.getTracer(getClass().getCanonicalName());
     }
+
+    @Path("health")
+    @GET
+    @Produces(MediaType.TEXT_PLAIN)
+    public void healthCheck() {}
 
     @Path("report")
     @POST
