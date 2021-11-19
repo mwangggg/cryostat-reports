@@ -76,6 +76,7 @@ public class RecordingsResource {
             try (var stream = fs.newInputStream(form.file.uploadedFile())) {
                 return generator.generateReport(stream);
             } finally {
+                fs.deleteIfExists(form.file.uploadedFile());
                 span.end();
             }
         }
