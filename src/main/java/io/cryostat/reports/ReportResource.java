@@ -26,7 +26,7 @@ import io.opentelemetry.semconv.trace.attributes.SemanticAttributes;
 import io.smallrye.common.annotation.Blocking;
 
 @Path("/")
-public class RecordingsResource {
+public class ReportResource {
 
     private final ReportGenerator generator;
     private final FileSystem fs;
@@ -34,7 +34,7 @@ public class RecordingsResource {
     private final Tracer tracer;
 
     @Inject
-    RecordingsResource(ReportGenerator generator, FileSystem fs, OpenTelemetry otel) {
+    ReportResource(ReportGenerator generator, FileSystem fs, OpenTelemetry otel) {
         this.generator = generator;
         this.fs = fs;
         this.otel = otel;
