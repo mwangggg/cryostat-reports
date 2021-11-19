@@ -1,7 +1,6 @@
 package io.cryostat.reports;
 
 import java.io.IOException;
-import java.io.InputStream;
 
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
@@ -12,9 +11,10 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 
-import org.jboss.resteasy.annotations.providers.multipart.MultipartForm;
+import org.jboss.resteasy.reactive.MultipartForm;
 
 import io.cryostat.core.reports.ReportGenerator;
+import io.cryostat.core.sys.FileSystem;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
@@ -23,17 +23,20 @@ import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.context.propagation.TextMapGetter;
 import io.opentelemetry.semconv.trace.attributes.SemanticAttributes;
+import io.smallrye.common.annotation.Blocking;
 
 @Path("/")
 public class RecordingsResource {
 
     private final ReportGenerator generator;
+    private final FileSystem fs;
     private final OpenTelemetry otel;
     private final Tracer tracer;
 
     @Inject
-    RecordingsResource(ReportGenerator generator, OpenTelemetry otel) {
+    RecordingsResource(ReportGenerator generator, FileSystem fs, OpenTelemetry otel) {
         this.generator = generator;
+        this.fs = fs;
         this.otel = otel;
         this.tracer = otel.getTracer(getClass().getCanonicalName());
     }
@@ -43,6 +46,7 @@ public class RecordingsResource {
     @Produces(MediaType.TEXT_PLAIN)
     public void healthCheck() {}
 
+    @Blocking
     @Path("report")
     @POST
     @Produces(MediaType.TEXT_HTML)
@@ -69,7 +73,7 @@ public class RecordingsResource {
                 .setAttribute(SemanticAttributes.HTTP_SCHEME, "http")
                 .setAttribute(SemanticAttributes.HTTP_TARGET, "/report");
 
-            try (var stream = form.file) {
+            try (var stream = fs.newInputStream(form.file.uploadedFile())) {
                 return generator.generateReport(stream);
             } finally {
                 span.end();
