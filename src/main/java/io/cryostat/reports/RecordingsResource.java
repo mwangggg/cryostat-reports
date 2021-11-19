@@ -69,9 +69,8 @@ public class RecordingsResource {
                 .setAttribute(SemanticAttributes.HTTP_SCHEME, "http")
                 .setAttribute(SemanticAttributes.HTTP_TARGET, "/report");
 
-            InputStream stream = form.file;
-            try (stream) {
-                return generator.generateReport(form.file);
+            try (var stream = form.file) {
+                return generator.generateReport(stream);
             } finally {
                 span.end();
             }
