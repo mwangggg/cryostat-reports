@@ -1,0 +1,21 @@
+{
+  "resources":[
+    {"pattern":"META-INF/services/io.smallrye.config.SmallRyeConfigFactory"}, 
+    {"pattern":"META-INF/services/org.eclipse.microprofile.config.spi.Converter"}, 
+    {"pattern":"META-INF/services/org.openjdk.jmc.flightrecorder.rules.IRule"}, 
+    {"pattern":"application.properties"}, 
+    {"pattern":"org/jboss/threads/Version.properties"}, 
+    {"pattern":"org/openjdk/jmc/common/messages/internal/messages.properties"}, 
+    {"pattern":"org/openjdk/jmc/flightrecorder/jdk/messages/internal/messages.properties"}, 
+    {"pattern":"org/openjdk/jmc/flightrecorder/messages/internal/messages.properties"}, 
+    {"pattern":"org/openjdk/jmc/flightrecorder/parser/synthetic/messages.properties"}, 
+    {"pattern":"org/openjdk/jmc/flightrecorder/rules/jdk/messages/internal/messages.properties"}, 
+    {"pattern":"org/openjdk/jmc/flightrecorder/rules/messages/internal/messages.properties"}, 
+    {"pattern":"org/openjdk/jmc/flightrecorder/rules/report/html/internal/messages.properties"}, 
+    {"pattern":"org/openjdk/jmc/flightrecorder/rules/report/html/internal/rule_result.html"}, 
+    {"pattern":"org/openjdk/jmc/flightrecorder/rules/report/html/internal/rules_overview.html"}, 
+    {"pattern":"org/openjdk/jmc/flightrecorder/rules/report/html/resultgroups.xml"}, 
+    {"pattern":"org/slf4j/impl/StaticLoggerBinder.class"}, 
+    {"pattern":"quarkus-runtime-config-defaults.properties"}
+  ]
+}
