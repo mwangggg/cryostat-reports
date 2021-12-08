@@ -8,7 +8,6 @@ import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
-import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 
 import org.jboss.resteasy.reactive.MultipartForm;
@@ -39,7 +38,7 @@ public class ReportResource {
     @POST
     @Produces(MediaType.TEXT_HTML)
     @Consumes(MediaType.MULTIPART_FORM_DATA)
-    public String addRecording(@javax.ws.rs.core.Context HttpHeaders headers, @MultipartForm RecordingFormData form) throws IOException {
+    public String addRecording(@MultipartForm RecordingFormData form) throws IOException {
         try (var stream = fs.newInputStream(form.file.uploadedFile())) {
             return generator.generateReport(stream);
         } finally {
