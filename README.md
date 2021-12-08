@@ -4,6 +4,14 @@ This project uses Quarkus, the Supersonic Subatomic Java Framework.
 
 If you want to learn more about Quarkus, please visit its website: https://quarkus.io/ .
 
+## API
+
+This microservice exposes only one API endpoint: `POST /report`. This expects `multipart/form-data`,
+with a form field named `file` containing a JFR binary file (`application/octet-stream`). The response
+is an Automated Analysis Report in `text/html` format. The uploaded file is not preserved and no
+caching is performed - this is expected to be handled by the "parent" Cryostat application that is
+sending the JFR binary data.
+
 ## Running the application in dev mode
 
 You can run your application in dev mode that enables live coding using:
@@ -24,12 +32,8 @@ Be aware that it’s not an _über-jar_ as the dependencies are copied into the 
 
 The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
 
-If you want to build an _über-jar_, execute the following command:
-```shell script
-./mvnw package -Dquarkus.package.type=uber-jar
-```
-
-The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
+An OCI image tagged as `quay.io/cryostatio/cryostat-reports` will also be built using `podman`
+and loaded into your local `podman` image registry.
 
 ## Creating a native executable
 
@@ -46,15 +50,3 @@ Or, if you don't have GraalVM installed, you can run the native executable build
 You can then execute your native executable with: `./target/cryostat-reports-1.0.0-SNAPSHOT-runner`
 
 If you want to learn more about building native executables, please consult https://quarkus.io/guides/maven-tooling.
-
-## Related Guides
-
-- RESTEasy Reactive ([guide](https://quarkus.io/guides/resteasy-reactive)): Reactive implementation of JAX-RS with additional features. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on it.
-
-## Provided Code
-
-### RESTEasy Reactive
-
-Easily start your Reactive RESTful Web Services
-
-[Related guide section...](https://quarkus.io/guides/getting-started-reactive#reactive-jax-rs-resources)
