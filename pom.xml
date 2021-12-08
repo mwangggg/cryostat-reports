@@ -39,6 +39,10 @@
       <artifactId>quarkus-resteasy-reactive</artifactId>
     </dependency>
     <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-container-image-docker</artifactId>
+    </dependency>
+    <dependency>
       <groupId>io.cryostat</groupId>
       <artifactId>cryostat-core</artifactId>
       <version>${io.cryostat.core.version}</version>
