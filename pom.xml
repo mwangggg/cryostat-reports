@@ -16,6 +16,7 @@
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>2.4.2.Final</quarkus.platform.version>
     <surefire-plugin.version>3.0.0-M5</surefire-plugin.version>
+    <com.diffplug.spotless.maven.plugin.version>2.17.7</com.diffplug.spotless.maven.plugin.version>
     <io.cryostat.core.version>2.3.1</io.cryostat.core.version>
   </properties>
   <dependencyManagement>
@@ -91,6 +92,34 @@
             <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
             <maven.home>${maven.home}</maven.home>
           </systemPropertyVariables>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>${com.diffplug.spotless.maven.plugin.version}</version>
+        <executions>
+          <execution>
+            <id>spotless</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <java>
+            <googleJavaFormat>
+              <version>1.7</version>
+              <style>AOSP</style>
+            </googleJavaFormat>
+            <trimTrailingWhitespace/>
+            <endWithNewline/>
+            <importOrder>
+              <order>java,javax,io.cryostat,</order>
+            </importOrder>
+            <removeUnusedImports/>
+          </java>
         </configuration>
       </plugin>
     </plugins>
