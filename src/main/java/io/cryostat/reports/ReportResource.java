@@ -3,8 +3,8 @@ package io.cryostat.reports;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -21,7 +21,7 @@ import javax.ws.rs.ServerErrorException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import io.cryostat.core.reports.ReportGenerator;
+import io.cryostat.core.reports.InterruptibleReportGenerator;
 import io.cryostat.core.sys.FileSystem;
 
 import io.quarkus.runtime.StartupEvent;
@@ -46,7 +46,7 @@ public class ReportResource {
     String timeoutMs;
 
     @Inject Logger logger;
-    @Inject ReportGenerator generator;
+    @Inject InterruptibleReportGenerator generator;
     @Inject FileSystem fs;
 
     void onStart(@Observes StartupEvent ev) {
@@ -69,7 +69,7 @@ public class ReportResource {
     @POST
     @Produces(MediaType.TEXT_HTML)
     @Consumes(MediaType.MULTIPART_FORM_DATA)
-    public String addRecording(RoutingContext ctx, @MultipartForm RecordingFormData form)
+    public String getReport(RoutingContext ctx, @MultipartForm RecordingFormData form)
             throws IOException {
         FileUpload upload = form.file;
         java.nio.file.Path file = upload.uploadedFile();
@@ -104,14 +104,32 @@ public class ReportResource {
             throw new ServerErrorException(Response.Status.GATEWAY_TIMEOUT);
         }
 
+        Future<String> future = null;
         try (var stream = fs.newInputStream(file)) {
-            return CompletableFuture.supplyAsync(() -> generator.generateReport(stream))
-                    .get(timeout - elapsed, TimeUnit.NANOSECONDS);
+            future = generator.generateReportInterruptibly(stream);
+            var ff = future;
+            ctx.response()
+                    .exceptionHandler(
+                            e -> {
+                                logger.error(e);
+                                ff.cancel(true);
+                            });
+            ctx.request()
+                    .exceptionHandler(
+                            e -> {
+                                logger.error(e);
+                                ff.cancel(true);
+                            });
+            ctx.addEndHandler().onComplete(ar -> ff.cancel(true));
+            return future.get(timeout - elapsed, TimeUnit.NANOSECONDS);
         } catch (ExecutionException | InterruptedException e) {
             throw new InternalServerErrorException(e);
         } catch (TimeoutException e) {
             throw new ServerErrorException(Response.Status.GATEWAY_TIMEOUT, e);
         } finally {
+            if (future != null) {
+                future.cancel(true);
+            }
             boolean deleted = fs.deleteIfExists(file);
             if (deleted) {
                 logger.infof("Deleted %s", file);
