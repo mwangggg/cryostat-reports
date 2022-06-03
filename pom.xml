@@ -17,6 +17,7 @@
     <quarkus.platform.version>2.2.5.Final</quarkus.platform.version>
     <surefire-plugin.version>3.0.0-M5</surefire-plugin.version>
     <com.diffplug.spotless.maven.plugin.version>2.17.7</com.diffplug.spotless.maven.plugin.version>
+    <org.codehaus.mojo.build.helper.plugin.version>3.3.0</org.codehaus.mojo.build.helper.plugin.version>
     <io.cryostat.core.version>2.10.0</io.cryostat.core.version>
     <org.jsoup.version>1.14.3</org.jsoup.version>
   </properties>
@@ -133,6 +134,27 @@
             <removeUnusedImports/>
           </java>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>${org.codehaus.mojo.build.helper.plugin.version}</version>
+        <executions>
+          <execution>
+            <id>image-tag-to-lower</id>
+            <goals>
+              <goal>regex-property</goal>
+            </goals>
+            <configuration>
+              <name>quarkus.container-image.tag</name>
+              <regex>^.*$</regex>
+              <value>${project.version}</value>
+              <replacement>${project.version}</replacement>
+              <toLowerCase>true</toLowerCase>
+              <failIfNoMatch>false</failIfNoMatch>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
