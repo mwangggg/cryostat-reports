@@ -53,7 +53,7 @@ Or, if you don't have GraalVM installed, you can run the native executable build
 ./mvnw package -Pnative -Dquarkus.native.container-build=true
 ```
 
-You can then execute your native executable with: `./target/cryostat-reports-1.0.0-SNAPSHOT-runner`
+You can then execute your native executable with: `./target/cryostat-reports-*-runner`
 
 If you want to learn more about building native executables, please consult https://quarkus.io/guides/maven-tooling.
 
@@ -63,9 +63,9 @@ https://www.graalvm.org/reference-manual/native-image/Agent/
 In short, download the GraalVM CE distribution. Then do:
 ```bash
 # replace with actual path to downloaded and extracted GraalVM
-export JAVA_HOME=~/workspace/graalvm-ce-java11-19.3.6/
+export JAVA_HOME=~/workspace/graalvm-ce-java17-21.3/
 # run the application JAR with the tracing agent attached. This is a JVM-mode JAR!
-$JAVA_HOME/bin/java -agentlib:native-image-agent=config-output-dir=graal-config -jar target/cryostat-reports-1.0.0-SNAPSHOT-runner.jar
+$JAVA_HOME/bin/java -agentlib:native-image-agent=config-output-dir=graal-config -jar target/cryostat-reports-*-runner.jar
 # in another terminal, make a request to exercise the expected microservice code path. Some "fully-featured"
 # JFR file should be used here - one that uses all possible event types used in rules analysis,
 # so that all rule pathways execute

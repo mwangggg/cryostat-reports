@@ -8,15 +8,15 @@
   <properties>
     <compiler-plugin.version>3.8.1</compiler-plugin.version>
     <maven.compiler.parameters>true</maven.compiler.parameters>
-    <maven.compiler.source>11</maven.compiler.source>
-    <maven.compiler.target>11</maven.compiler.target>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>2.2.5.Final</quarkus.platform.version>
     <surefire-plugin.version>3.0.0-M5</surefire-plugin.version>
-    <com.diffplug.spotless.maven.plugin.version>2.17.7</com.diffplug.spotless.maven.plugin.version>
+    <com.diffplug.spotless.maven.plugin.version>2.22.6</com.diffplug.spotless.maven.plugin.version>
     <org.codehaus.mojo.build.helper.plugin.version>3.3.0</org.codehaus.mojo.build.helper.plugin.version>
     <io.cryostat.core.version>2.10.0</io.cryostat.core.version>
     <org.jsoup.version>1.14.3</org.jsoup.version>
@@ -123,8 +123,9 @@
         <configuration>
           <java>
             <googleJavaFormat>
-              <version>1.7</version>
+              <version>1.15.0</version>
               <style>AOSP</style>
+              <reflowLongStrings>true</reflowLongStrings>
             </googleJavaFormat>
             <trimTrailingWhitespace/>
             <endWithNewline/>
