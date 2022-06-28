@@ -5,8 +5,15 @@ import static io.restassured.RestAssured.given;
 import java.io.File;
 import java.net.URISyntaxException;
 import java.nio.file.Paths;
+import java.util.Map;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.junit.QuarkusTest;
+import io.restassured.http.ContentType;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.jsoup.Jsoup;
@@ -15,6 +22,7 @@ import org.jsoup.select.Elements;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.openjdk.jmc.flightrecorder.rules.RuleRegistry;
 
 @QuarkusTest
 public class ReportResourceTest {
@@ -133,5 +141,83 @@ public class ReportResourceTest {
                 titles.get(0).html(), Matchers.equalTo("Automated Analysis Result Overview"));
         MatcherAssert.assertThat("Expected one <body>", body.size(), Matchers.equalTo(1));
         MatcherAssert.assertThat("Expect no rules", rules.size(), Matchers.equalTo(0));
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "/profiling_sample.jfr",
+                "/profiling_sample.jfr.gz",
+            })
+    public void testReportEndpointForJSON(String filePath)
+            throws URISyntaxException, JsonMappingException, JsonProcessingException {
+        File jfr = Paths.get(getClass().getResource(filePath).toURI()).toFile();
+        String response =
+                given().contentType("multipart/form-data")
+                        .accept(ContentType.JSON)
+                        .multiPart("file", jfr)
+                        .when()
+                        .post("/report")
+                        .then()
+                        .statusCode(200)
+                        .contentType("application/json")
+                        .body(Matchers.is(Matchers.not(Matchers.emptyOrNullString())))
+                        .extract()
+                        .asString();
+
+        ObjectMapper oMapper = new ObjectMapper();
+        Map<String, RuleEvaluation> map =
+                oMapper.readValue(response, new TypeReference<Map<String, RuleEvaluation>>() {});
+        int numRules = RuleRegistry.getRules().size();
+
+        MatcherAssert.assertThat(map, Matchers.notNullValue());
+        MatcherAssert.assertThat(map, Matchers.aMapWithSize(numRules));
+        for (var e : map.entrySet()) {
+            MatcherAssert.assertThat(e, Matchers.notNullValue());
+            MatcherAssert.assertThat(e.getValue(), Matchers.notNullValue());
+            MatcherAssert.assertThat(
+                    e.getValue().getDescription(), Matchers.not(Matchers.emptyOrNullString()));
+            MatcherAssert.assertThat(
+                    e.getValue().getName(), Matchers.not(Matchers.emptyOrNullString()));
+            MatcherAssert.assertThat(
+                    e.getValue().getTopic(), Matchers.not(Matchers.emptyOrNullString()));
+            MatcherAssert.assertThat(
+                    e.getValue().getScore(),
+                    Matchers.anyOf(
+                            Matchers.equalTo(-1d),
+                            Matchers.equalTo(-2d),
+                            Matchers.equalTo(-3d),
+                            Matchers.both(Matchers.lessThanOrEqualTo(100d))
+                                    .and(Matchers.greaterThanOrEqualTo(0d))));
+        }
+    }
+
+    private static class RuleEvaluation {
+        private double score;
+        private String name;
+        private String topic;
+        private String description;
+
+        private RuleEvaluation() {}
+
+        @JsonProperty("score")
+        public double getScore() {
+            return score;
+        }
+
+        @JsonProperty("name")
+        public String getName() {
+            return name;
+        }
+
+        @JsonProperty("topic")
+        public String getTopic() {
+            return topic;
+        }
+
+        @JsonProperty("description")
+        public String getDescription() {
+            return description;
+        }
     }
 }

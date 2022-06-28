@@ -3,13 +3,12 @@ package io.cryostat.reports;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.util.Set;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import javax.enterprise.event.Observes;
 import javax.inject.Inject;
@@ -27,30 +26,26 @@ import javax.ws.rs.core.Response;
 import io.cryostat.core.reports.InterruptibleReportGenerator;
 import io.cryostat.core.reports.InterruptibleReportGenerator.ReportGenerationEvent;
 import io.cryostat.core.reports.InterruptibleReportGenerator.ReportResult;
+import io.cryostat.core.reports.InterruptibleReportGenerator.RuleEvaluation;
 import io.cryostat.core.sys.FileSystem;
+import io.cryostat.core.util.RuleFilterParser;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.ext.web.RoutingContext;
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.MultipartForm;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import org.openjdk.jmc.common.io.IOToolkit;
 import org.openjdk.jmc.flightrecorder.rules.IRule;
-import org.openjdk.jmc.flightrecorder.rules.RuleRegistry;
+import org.openjdk.jmc.flightrecorder.rules.Result;
 
 @Path("/")
 public class ReportResource {
-
-    private static final Set<String> RULE_IDS_SET =
-            RuleRegistry.getRules().stream().map(rule -> rule.getId()).collect(Collectors.toSet());
-
-    private static final Set<String> TOPIC_IDS_SET =
-            RuleRegistry.getRules().stream()
-                    .map(rule -> rule.getTopic())
-                    .collect(Collectors.toSet());
 
     private static final String SINGLETHREAD_PROPERTY =
             "org.openjdk.jmc.flightrecorder.parser.singlethreaded";
@@ -64,6 +59,8 @@ public class ReportResource {
     @Inject Logger logger;
     @Inject InterruptibleReportGenerator generator;
     @Inject FileSystem fs;
+
+    RuleFilterParser rfp = new RuleFilterParser();
 
     void onStart(@Observes StartupEvent ev) {
         logger.infof(
@@ -82,13 +79,93 @@ public class ReportResource {
 
     @Blocking
     @Path("report")
-    @POST
     @Produces(MediaType.TEXT_HTML)
     @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @POST
     public String getReport(RoutingContext ctx, @MultipartForm RecordingFormData form)
             throws IOException {
         FileUpload upload = form.file;
 
+        Triple<java.nio.file.Path, ReportGenerationEvent, Pair<Long, Long>> tripleHelper =
+                reportHelper(upload);
+        java.nio.file.Path file = tripleHelper.getLeft();
+        ReportGenerationEvent evt = tripleHelper.getMiddle();
+        long timeout = TimeUnit.MILLISECONDS.toNanos(Long.parseLong(timeoutMs));
+        long start = tripleHelper.getRight().getLeft();
+        long elapsed = tripleHelper.getRight().getRight();
+
+        Predicate<IRule> predicate = rfp.parse(form.filter);
+        Future<ReportResult> reportFuture = null;
+
+        try (var stream = fs.newInputStream(file)) {
+            reportFuture = generator.generateReportInterruptibly(stream, predicate);
+            ctxHelper(ctx, reportFuture);
+            evt.setRecordingSizeBytes(reportFuture.get().getReportStats().getRecordingSizeBytes());
+            evt.setRulesEvaluated(reportFuture.get().getReportStats().getRulesEvaluated());
+            evt.setRulesApplicable(reportFuture.get().getReportStats().getRulesApplicable());
+            return reportFuture.get(timeout - elapsed, TimeUnit.NANOSECONDS).getHtml();
+        } catch (ExecutionException | InterruptedException e) {
+            throw new InternalServerErrorException(e);
+        } catch (TimeoutException e) {
+            throw new ServerErrorException(Response.Status.GATEWAY_TIMEOUT, e);
+        } finally {
+            cleanupHelper(reportFuture, file, evt, upload.fileName(), start);
+        }
+    }
+
+    @Blocking
+    @Path("report")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @POST
+    public String getEval(RoutingContext ctx, @MultipartForm RecordingFormData form)
+            throws IOException {
+        FileUpload upload = form.file;
+
+        Triple<java.nio.file.Path, ReportGenerationEvent, Pair<Long, Long>> tripleHelper =
+                reportHelper(upload);
+        java.nio.file.Path file = tripleHelper.getLeft();
+        ReportGenerationEvent evt = tripleHelper.getMiddle();
+        long timeout = TimeUnit.MILLISECONDS.toNanos(Long.parseLong(timeoutMs));
+        long start = tripleHelper.getRight().getLeft();
+        long elapsed = tripleHelper.getRight().getRight();
+
+        Predicate<IRule> predicate = rfp.parse(form.filter);
+        Future<Map<String, RuleEvaluation>> evalMapFuture = null;
+
+        ObjectMapper oMapper = new ObjectMapper();
+        try (var stream = fs.newInputStream(file)) {
+            evalMapFuture = generator.generateEvalMapInterruptibly(stream, predicate);
+            ctxHelper(ctx, evalMapFuture);
+            var evalStats = getEvalStats(evalMapFuture.get());
+            evt.setRecordingSizeBytes(evalStats.getLeft());
+            evt.setRulesEvaluated(evalStats.getMiddle());
+            evt.setRulesApplicable(evalStats.getRight());
+            return oMapper.writeValueAsString(
+                    evalMapFuture.get(timeout - elapsed, TimeUnit.NANOSECONDS));
+        } catch (ExecutionException | InterruptedException e) {
+            throw new InternalServerErrorException(e);
+        } catch (TimeoutException e) {
+            throw new ServerErrorException(Response.Status.GATEWAY_TIMEOUT, e);
+        } finally {
+            cleanupHelper(evalMapFuture, file, evt, upload.fileName(), start);
+        }
+    }
+
+    private Triple<Long, Integer, Integer> getEvalStats(Map<String, RuleEvaluation> evalMap) {
+        // TODO: Add some sort of ReportStats for EvalMap/RuleEvaluation (setRecordingSizeBytes)
+        int rulesEvaluated = evalMap.size();
+        int rulesApplicable =
+                (int)
+                        evalMap.values().stream()
+                                .filter(result -> result.getScore() != Result.NOT_APPLICABLE)
+                                .count();
+
+        return Triple.of(Long.valueOf(0), rulesEvaluated, rulesApplicable);
+    }
+
+    private Triple<java.nio.file.Path, ReportGenerationEvent, Pair<Long, Long>> reportHelper(
+            FileUpload upload) throws IOException {
         java.nio.file.Path file = upload.uploadedFile();
         long timeout = TimeUnit.MILLISECONDS.toNanos(Long.parseLong(timeoutMs));
         long start = System.nanoTime();
@@ -123,69 +200,47 @@ public class ReportResource {
         if (elapsed > timeout) {
             throw new ServerErrorException(Response.Status.GATEWAY_TIMEOUT);
         }
+        return Triple.of(file, evt, Pair.of(start, elapsed));
+    }
 
-        Future<ReportResult> future = null;
-        try (var stream = fs.newInputStream(file)) {
-            String rawFilter = form.filter;
-            if (StringUtils.isNotBlank(rawFilter)) {
-                String[] filterArray = rawFilter.split(",");
-                Predicate<IRule> combinedPredicate = (arg) -> false;
-                for (String filter : filterArray) {
-                    if (RULE_IDS_SET.contains(filter)) {
-                        Predicate<IRule> pr =
-                                (rule) -> rule.getId().equalsIgnoreCase(filter.trim());
-                        combinedPredicate = combinedPredicate.or(pr);
-                    } else if (TOPIC_IDS_SET.contains(filter)) {
-                        Predicate<IRule> pr =
-                                (rule) -> rule.getTopic().equalsIgnoreCase(filter.trim());
-                        combinedPredicate = combinedPredicate.or(pr);
-                    }
-                }
-                future = generator.generateReportInterruptibly(stream, combinedPredicate);
-            } else {
-                future = generator.generateReportInterruptibly(stream);
-            }
-            var ff = future;
-            ctx.response()
-                    .exceptionHandler(
-                            e -> {
-                                logger.error(e);
-                                ff.cancel(true);
-                            });
-            ctx.request()
-                    .exceptionHandler(
-                            e -> {
-                                logger.error(e);
-                                ff.cancel(true);
-                            });
-            ctx.addEndHandler().onComplete(ar -> ff.cancel(true));
+    private void ctxHelper(RoutingContext ctx, Future<?> ff) {
+        ctx.response()
+                .exceptionHandler(
+                        e -> {
+                            logger.error(e);
+                            ff.cancel(true);
+                        });
+        ctx.request()
+                .exceptionHandler(
+                        e -> {
+                            logger.error(e);
+                            ff.cancel(true);
+                        });
+        ctx.addEndHandler().onComplete(ar -> ff.cancel(true));
+    }
 
-            evt.setRecordingSizeBytes(future.get().getReportStats().getRecordingSizeBytes());
-            evt.setRulesEvaluated(future.get().getReportStats().getRulesEvaluated());
-            evt.setRulesApplicable(future.get().getReportStats().getRulesApplicable());
-
-            return future.get(timeout - elapsed, TimeUnit.NANOSECONDS).getHtml();
-        } catch (ExecutionException | InterruptedException e) {
-            throw new InternalServerErrorException(e);
-        } catch (TimeoutException e) {
-            throw new ServerErrorException(Response.Status.GATEWAY_TIMEOUT, e);
-        } finally {
-            if (future != null) {
-                future.cancel(true);
-            }
-            boolean deleted = fs.deleteIfExists(file);
-            if (deleted) {
-                logger.infof("Deleted %s", file);
-            } else {
-                logger.infof("Failed to delete %s", file);
-            }
-            logger.infof(
-                    "Completed request for %s after %dms",
-                    upload.fileName(), TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
-            evt.end();
-            if (evt.shouldCommit()) {
-                evt.commit();
-            }
+    private void cleanupHelper(
+            Future<?> future,
+            java.nio.file.Path file,
+            ReportGenerationEvent evt,
+            String fileName,
+            long start)
+            throws IOException {
+        if (future != null) {
+            future.cancel(true);
+        }
+        boolean deleted = fs.deleteIfExists(file);
+        if (deleted) {
+            logger.infof("Deleted %s", file);
+        } else {
+            logger.infof("Failed to delete %s", file);
+        }
+        logger.infof(
+                "Completed request for %s after %dms",
+                fileName, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
+        evt.end();
+        if (evt.shouldCommit()) {
+            evt.commit();
         }
     }
 
