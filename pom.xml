@@ -18,7 +18,7 @@
     <surefire-plugin.version>3.0.0-M5</surefire-plugin.version>
     <com.diffplug.spotless.maven.plugin.version>2.22.7</com.diffplug.spotless.maven.plugin.version>
     <org.codehaus.mojo.build.helper.plugin.version>3.3.0</org.codehaus.mojo.build.helper.plugin.version>
-    <io.cryostat.core.version>2.12.0</io.cryostat.core.version>
+    <io.cryostat.core.version>2.13.1</io.cryostat.core.version>
     <org.jsoup.version>1.14.3</org.jsoup.version>
   </properties>
   <dependencyManagement>
