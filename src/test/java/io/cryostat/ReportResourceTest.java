@@ -79,6 +79,7 @@ public class ReportResourceTest {
         File jfr = Paths.get(getClass().getResource(filePath).toURI()).toFile();
         String response =
                 given().contentType("multipart/form-data")
+                        .accept(ContentType.HTML)
                         .multiPart("file", jfr)
                         .when()
                         .post("/report")
@@ -112,6 +113,7 @@ public class ReportResourceTest {
         File jfr = Paths.get(getClass().getResource(filePath).toURI()).toFile();
         String response =
                 given().contentType("multipart/form-data")
+                        .accept(ContentType.HTML)
                         .multiPart("file", jfr)
                         .formParam("filter", "LongGcPause,heap")
                         .when()
@@ -154,6 +156,7 @@ public class ReportResourceTest {
         File jfr = Paths.get(getClass().getResource(filePath).toURI()).toFile();
         String response =
                 given().contentType("multipart/form-data")
+                        .accept(ContentType.HTML)
                         .multiPart("file", jfr)
                         .formParam("filter", "FakeRule")
                         .when()
