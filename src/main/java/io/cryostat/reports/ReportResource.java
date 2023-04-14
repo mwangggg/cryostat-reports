@@ -79,7 +79,6 @@ import org.jboss.resteasy.reactive.MultipartForm;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import org.openjdk.jmc.common.io.IOToolkit;
 import org.openjdk.jmc.flightrecorder.rules.IRule;
-import org.openjdk.jmc.flightrecorder.rules.Result;
 
 @Path("/")
 public class ReportResource {
@@ -193,10 +192,7 @@ public class ReportResource {
         // TODO: Add some sort of ReportStats for EvalMap/RuleEvaluation (setRecordingSizeBytes)
         int rulesEvaluated = evalMap.size();
         int rulesApplicable =
-                (int)
-                        evalMap.values().stream()
-                                .filter(result -> result.getScore() != Result.NOT_APPLICABLE)
-                                .count();
+                (int) evalMap.values().stream().filter(result -> result.getScore() >= 0).count();
 
         return Triple.of(Long.valueOf(0), rulesEvaluated, rulesApplicable);
     }

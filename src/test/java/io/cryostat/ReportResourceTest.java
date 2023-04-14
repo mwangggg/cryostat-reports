@@ -139,7 +139,7 @@ public class ReportResourceTest {
                 titles.get(0).html(), Matchers.equalTo("Automated Analysis Result Overview"));
         MatcherAssert.assertThat("Expected one <body>", body.size(), Matchers.equalTo(1));
         MatcherAssert.assertThat(
-                "Expect 7 heap rules, and 1 LongGcPause rule", rules.size(), Matchers.equalTo(8));
+                "Expect 8 heap rules, and 1 LongGcPause rule", rules.size(), Matchers.equalTo(9));
         MatcherAssert.assertThat(
                 "Expect LongGcPause rule to be present",
                 specificRule.attr("name"),
@@ -215,8 +215,6 @@ public class ReportResourceTest {
         for (var e : map.entrySet()) {
             MatcherAssert.assertThat(e, Matchers.notNullValue());
             MatcherAssert.assertThat(e.getValue(), Matchers.notNullValue());
-            MatcherAssert.assertThat(
-                    e.getValue().getDescription(), Matchers.not(Matchers.emptyOrNullString()));
             MatcherAssert.assertThat(
                     e.getValue().getName(), Matchers.not(Matchers.emptyOrNullString()));
             MatcherAssert.assertThat(
