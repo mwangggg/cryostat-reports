@@ -1,5 +1,9 @@
 name: CI build and push
 
+concurrency:
+  group: ci-${{ github.run_id }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
@@ -7,7 +11,13 @@ on:
       - v[0-9]+
       - v[0-9]+.[0-9]+
       - cryostat-v[0-9]+.[0-9]+
-  pull_request:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - labeled
+      - unlabeled
     branches:
       - main
       - v[0-9]+
@@ -18,7 +28,13 @@ jobs:
   get-pom-properties:
     runs-on: ubuntu-latest
     steps:
+    - name: Fail if PR and safe-to-test label NOT applied
+      if: ${{ github.event_name == 'pull_request_target' && !contains(github.event.pull_request.labels.*.name, 'safe-to-test') }}
+      run: exit 1
     - uses: actions/checkout@v2
+      with:
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
+        ref: ${{ github.event.pull_request.head.ref }}
     - id: query-pom
       name: Get properties from POM
       # Query POM image version and save as output parameter
@@ -36,6 +52,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
       with:
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
+        ref: ${{ github.event.pull_request.head.ref }}
         submodules: true
     - uses: actions/setup-java@v2
       with:
