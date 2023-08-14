@@ -67,32 +67,30 @@ jobs:
     - uses: skjolber/maven-cache-github-action@v1
       with:
         step: restore
-    - run: mvn -B -U clean verify
+    - name: Build application
+      run: ./mvnw -Dquarkus.container-image.build=false -B -U clean verify
       env:
         GITHUB_TOKEN_REF: ${{ secrets.GH_PKGS_READ_TOKEN }}
-    - name: Tag images
-      id: tag-image
-      env:
-        IMAGE_VERSION: ${{ needs.get-pom-properties.outputs.image-version }}
-      run: |
-        if [ "$GITHUB_REF" == "refs/heads/main" ]; then
-          podman tag \
-          ${{ env.CRYOSTAT_REPORTS_IMG }}:$IMAGE_VERSION \
-          ${{ env.CRYOSTAT_REPORTS_IMG }}:latest
-          echo "::set-output name=tags::$IMAGE_VERSION latest"
-        else
-          echo "::set-output name=tags::$IMAGE_VERSION"
-        fi
-      if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
     - uses: skjolber/maven-cache-github-action@v1
       with:
         step: save
+    - name: Build container images and manifest
+      id: buildah-build
+      uses: redhat-actions/buildah-build@v2
+      env:
+        IMAGE_VERSION: ${{ needs.get-pom-properties.outputs.image-version }}
+      with:
+        image: ${{ env.CRYOSTAT_REPORTS_IMG }}
+        archs: amd64, arm64
+        tags: ${{ env.IMAGE_VERSION }} ${{ github.ref == 'refs/heads/main' && 'latest' || '' }}
+        containerfiles: |
+          ./src/main/docker/Dockerfile.jvm
     - name: Push to quay.io
       id: push-to-quay
       uses: redhat-actions/push-to-registry@v2
       with:
         image: cryostat-reports
-        tags: ${{ steps.tag-image.outputs.tags }}
+        tags: ${{ steps.buildah-build.outputs.tags }}
         registry: quay.io/cryostat
         username: cryostat+bot
         password: ${{ secrets.REGISTRY_PASSWORD }}
