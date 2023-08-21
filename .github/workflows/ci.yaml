@@ -23,6 +23,12 @@ on:
       - v[0-9]+
       - v[0-9]+.[0-9]+
       - cryostat-v[0-9]+.[0-9]+
+env:
+  CI_USER: cryostat+bot
+  CI_REGISTRY: quay.io/cryostat
+  CI_IMG: quay.io/cryostat/cryostat-reports
+  REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+  REF: ${{ github.event.pull_request.head.ref }}
 
 jobs:
   get-pom-properties:
@@ -31,10 +37,10 @@ jobs:
     - name: Fail if PR and safe-to-test label NOT applied
       if: ${{ github.event_name == 'pull_request_target' && !contains(github.event.pull_request.labels.*.name, 'safe-to-test') }}
       run: exit 1
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
-        repository: ${{ github.event.pull_request.head.repo.full_name }}
-        ref: ${{ github.event.pull_request.head.ref }}
+        repository: ${{ env.REPOSITORY }}
+        ref: ${{ env.REF }}
     - id: query-pom
       name: Get properties from POM
       # Query POM image version and save as output parameter
@@ -47,40 +53,32 @@ jobs:
   build:
     runs-on: ubuntu-latest
     needs: [get-pom-properties]
-    env:
-      CRYOSTAT_REPORTS_IMG: quay.io/cryostat/cryostat-reports
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
-        repository: ${{ github.event.pull_request.head.repo.full_name }}
-        ref: ${{ github.event.pull_request.head.ref }}
-        submodules: true
-    - uses: actions/setup-java@v2
+        repository: ${{ env.REPOSITORY }}
+        ref: ${{ env.REF }}
+    - uses: actions/setup-java@v3
       with:
         java-version: '17'
         distribution: 'temurin'
+        cache: 'maven'
     - name: maven-settings
       uses: s4u/maven-settings-action@v2
       with:
         servers: '[{"id": "github", "username": "dummy", "password": "${env.GITHUB_TOKEN_REF}"}]'
         githubServer: false
-    - uses: skjolber/maven-cache-github-action@v1
-      with:
-        step: restore
     - name: Build application
       run: ./mvnw -Dquarkus.container-image.build=false -B -U clean verify
       env:
         GITHUB_TOKEN_REF: ${{ secrets.GH_PKGS_READ_TOKEN }}
-    - uses: skjolber/maven-cache-github-action@v1
-      with:
-        step: save
     - name: Build container images and manifest
       id: buildah-build
       uses: redhat-actions/buildah-build@v2
       env:
         IMAGE_VERSION: ${{ needs.get-pom-properties.outputs.image-version }}
       with:
-        image: ${{ env.CRYOSTAT_REPORTS_IMG }}
+        image: ${{ env.CI_IMG }}
         archs: amd64, arm64
         tags: ${{ env.IMAGE_VERSION }} ${{ github.ref == 'refs/heads/main' && 'latest' || '' }}
         containerfiles: |
@@ -91,8 +89,8 @@ jobs:
       with:
         image: cryostat-reports
         tags: ${{ steps.buildah-build.outputs.tags }}
-        registry: quay.io/cryostat
-        username: cryostat+bot
+        registry: ${{ env.CI_REGISTRY }}
+        username: ${{ env.CI_USER }}
         password: ${{ secrets.REGISTRY_PASSWORD }}
       if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
     - name: Print image URL
