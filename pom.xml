@@ -26,7 +26,7 @@
     <com.diffplug.spotless.maven.plugin.version>2.38.0</com.diffplug.spotless.maven.plugin.version>
     <org.codehaus.mojo.build.helper.plugin.version>3.4.0</org.codehaus.mojo.build.helper.plugin.version>
     <io.cryostat.core.version>2.22.0</io.cryostat.core.version>
-    <org.jsoup.version>1.15.4</org.jsoup.version>
+    <org.jsoup.version>1.16.1</org.jsoup.version>
     <com.mycila.license.maven.plugin.version>4.2</com.mycila.license.maven.plugin.version>
   </properties>
   <dependencyManagement>
