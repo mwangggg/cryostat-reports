@@ -25,19 +25,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 
-import javax.enterprise.event.Observes;
-import javax.inject.Inject;
-import javax.ws.rs.ClientErrorException;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
-import javax.ws.rs.InternalServerErrorException;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.ServerErrorException;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-
 import io.cryostat.core.reports.InterruptibleReportGenerator;
 import io.cryostat.core.reports.InterruptibleReportGenerator.ReportGenerationEvent;
 import io.cryostat.core.reports.InterruptibleReportGenerator.ReportResult;
@@ -49,11 +36,23 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.ext.web.RoutingContext;
+import jakarta.enterprise.event.Observes;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.BeanParam;
+import jakarta.ws.rs.ClientErrorException;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.InternalServerErrorException;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.ServerErrorException;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
-import org.jboss.resteasy.reactive.MultipartForm;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import org.openjdk.jmc.common.io.IOToolkit;
 import org.openjdk.jmc.flightrecorder.rules.IRule;
@@ -96,7 +95,7 @@ public class ReportResource {
     @Produces(MediaType.TEXT_HTML)
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @POST
-    public String getReport(RoutingContext ctx, @MultipartForm RecordingFormData form)
+    public String getReport(RoutingContext ctx, @BeanParam RecordingFormData form)
             throws IOException {
         FileUpload upload = form.file;
 
@@ -132,7 +131,7 @@ public class ReportResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @POST
-    public String getEval(RoutingContext ctx, @MultipartForm RecordingFormData form)
+    public String getEval(RoutingContext ctx, @BeanParam RecordingFormData form)
             throws IOException {
         FileUpload upload = form.file;
 
