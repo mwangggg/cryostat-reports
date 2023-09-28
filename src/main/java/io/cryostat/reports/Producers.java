@@ -15,7 +15,6 @@
  */
 package io.cryostat.reports;
 
-import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
 
 import io.cryostat.core.log.Logger;
@@ -30,8 +29,7 @@ public class Producers {
     @Produces
     @ApplicationScoped
     InterruptibleReportGenerator produceReportGenerator() {
-        return new InterruptibleReportGenerator(
-                Logger.INSTANCE, Set.of(), ForkJoinPool.commonPool());
+        return new InterruptibleReportGenerator(ForkJoinPool.commonPool(), Logger.INSTANCE);
     }
 
     @Produces

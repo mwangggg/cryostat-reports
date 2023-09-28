@@ -26,9 +26,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 
 import io.cryostat.core.reports.InterruptibleReportGenerator;
-import io.cryostat.core.reports.InterruptibleReportGenerator.ReportGenerationEvent;
-import io.cryostat.core.reports.InterruptibleReportGenerator.ReportResult;
-import io.cryostat.core.reports.InterruptibleReportGenerator.RuleEvaluation;
+import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.core.sys.FileSystem;
 import io.cryostat.core.util.RuleFilterParser;
 
@@ -50,7 +48,6 @@ import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.commons.lang3.tuple.Triple;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
@@ -92,42 +89,6 @@ public class ReportResource {
 
     @Blocking
     @Path("report")
-    @Produces(MediaType.TEXT_HTML)
-    @Consumes(MediaType.MULTIPART_FORM_DATA)
-    @POST
-    public String getReport(RoutingContext ctx, @BeanParam RecordingFormData form)
-            throws IOException {
-        FileUpload upload = form.file;
-
-        Triple<java.nio.file.Path, ReportGenerationEvent, Pair<Long, Long>> tripleHelper =
-                reportHelper(upload);
-        java.nio.file.Path file = tripleHelper.getLeft();
-        ReportGenerationEvent evt = tripleHelper.getMiddle();
-        long timeout = TimeUnit.MILLISECONDS.toNanos(Long.parseLong(timeoutMs));
-        long start = tripleHelper.getRight().getLeft();
-        long elapsed = tripleHelper.getRight().getRight();
-
-        Predicate<IRule> predicate = rfp.parse(form.filter);
-        Future<ReportResult> reportFuture = null;
-
-        try (var stream = fs.newInputStream(file)) {
-            reportFuture = generator.generateReportInterruptibly(stream, predicate);
-            ctxHelper(ctx, reportFuture);
-            evt.setRecordingSizeBytes(reportFuture.get().getReportStats().getRecordingSizeBytes());
-            evt.setRulesEvaluated(reportFuture.get().getReportStats().getRulesEvaluated());
-            evt.setRulesApplicable(reportFuture.get().getReportStats().getRulesApplicable());
-            return reportFuture.get(timeout - elapsed, TimeUnit.NANOSECONDS).getHtml();
-        } catch (ExecutionException | InterruptedException e) {
-            throw new InternalServerErrorException(e);
-        } catch (TimeoutException e) {
-            throw new ServerErrorException(Response.Status.GATEWAY_TIMEOUT, e);
-        } finally {
-            cleanupHelper(reportFuture, file, evt, upload.fileName(), start);
-        }
-    }
-
-    @Blocking
-    @Path("report")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @POST
@@ -135,25 +96,19 @@ public class ReportResource {
             throws IOException {
         FileUpload upload = form.file;
 
-        Triple<java.nio.file.Path, ReportGenerationEvent, Pair<Long, Long>> tripleHelper =
-                reportHelper(upload);
-        java.nio.file.Path file = tripleHelper.getLeft();
-        ReportGenerationEvent evt = tripleHelper.getMiddle();
+        Pair<java.nio.file.Path, Pair<Long, Long>> uploadResult = handleUpload(upload);
+        java.nio.file.Path file = uploadResult.getLeft();
         long timeout = TimeUnit.MILLISECONDS.toNanos(Long.parseLong(timeoutMs));
-        long start = tripleHelper.getRight().getLeft();
-        long elapsed = tripleHelper.getRight().getRight();
+        long start = uploadResult.getRight().getLeft();
+        long elapsed = uploadResult.getRight().getRight();
 
         Predicate<IRule> predicate = rfp.parse(form.filter);
-        Future<Map<String, RuleEvaluation>> evalMapFuture = null;
+        Future<Map<String, AnalysisResult>> evalMapFuture = null;
 
         ObjectMapper oMapper = new ObjectMapper();
         try (var stream = fs.newInputStream(file)) {
             evalMapFuture = generator.generateEvalMapInterruptibly(stream, predicate);
             ctxHelper(ctx, evalMapFuture);
-            var evalStats = getEvalStats(evalMapFuture.get());
-            evt.setRecordingSizeBytes(evalStats.getLeft());
-            evt.setRulesEvaluated(evalStats.getMiddle());
-            evt.setRulesApplicable(evalStats.getRight());
             return oMapper.writeValueAsString(
                     evalMapFuture.get(timeout - elapsed, TimeUnit.NANOSECONDS));
         } catch (ExecutionException | InterruptedException e) {
@@ -161,30 +116,19 @@ public class ReportResource {
         } catch (TimeoutException e) {
             throw new ServerErrorException(Response.Status.GATEWAY_TIMEOUT, e);
         } finally {
-            cleanupHelper(evalMapFuture, file, evt, upload.fileName(), start);
+            cleanupHelper(evalMapFuture, file, upload.fileName(), start);
         }
     }
 
-    private Triple<Long, Integer, Integer> getEvalStats(Map<String, RuleEvaluation> evalMap) {
-        // TODO: Add some sort of ReportStats for EvalMap/RuleEvaluation (setRecordingSizeBytes)
-        int rulesEvaluated = evalMap.size();
-        int rulesApplicable =
-                (int) evalMap.values().stream().filter(result -> result.getScore() >= 0).count();
-
-        return Triple.of(Long.valueOf(0), rulesEvaluated, rulesApplicable);
-    }
-
-    private Triple<java.nio.file.Path, ReportGenerationEvent, Pair<Long, Long>> reportHelper(
-            FileUpload upload) throws IOException {
+    private Pair<java.nio.file.Path, Pair<Long, Long>> handleUpload(FileUpload upload)
+            throws IOException {
         java.nio.file.Path file = upload.uploadedFile();
         long timeout = TimeUnit.MILLISECONDS.toNanos(Long.parseLong(timeoutMs));
         long start = System.nanoTime();
         long now = start;
         long elapsed = 0;
-        ReportGenerationEvent evt = new ReportGenerationEvent(upload.fileName());
 
         logger.infof("Received request for %s (%d bytes)", upload.fileName(), upload.size());
-        evt.begin();
 
         if (IOToolkit.isCompressedFile(file.toFile())) {
             file = decompress(file);
@@ -210,7 +154,7 @@ public class ReportResource {
         if (elapsed > timeout) {
             throw new ServerErrorException(Response.Status.GATEWAY_TIMEOUT);
         }
-        return Triple.of(file, evt, Pair.of(start, elapsed));
+        return Pair.of(file, Pair.of(start, elapsed));
     }
 
     private void ctxHelper(RoutingContext ctx, Future<?> ff) {
@@ -230,11 +174,7 @@ public class ReportResource {
     }
 
     private void cleanupHelper(
-            Future<?> future,
-            java.nio.file.Path file,
-            ReportGenerationEvent evt,
-            String fileName,
-            long start)
+            Future<?> future, java.nio.file.Path file, String fileName, long start)
             throws IOException {
         if (future != null) {
             future.cancel(true);
@@ -248,10 +188,6 @@ public class ReportResource {
         logger.infof(
                 "Completed request for %s after %dms",
                 fileName, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
-        evt.end();
-        if (evt.shouldCommit()) {
-            evt.commit();
-        }
     }
 
     private java.nio.file.Path decompress(java.nio.file.Path file) throws IOException {
