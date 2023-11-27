@@ -26,7 +26,7 @@
     <com.diffplug.spotless.maven.plugin.version>2.40.0</com.diffplug.spotless.maven.plugin.version>
     <org.codehaus.mojo.build.helper.plugin.version>3.5.0</org.codehaus.mojo.build.helper.plugin.version>
     <io.cryostat.core.version>2.23.0</io.cryostat.core.version>
-    <org.jsoup.version>1.17.1</org.jsoup.version>
+    <org.jsoup.version>1.16.2</org.jsoup.version>
     <com.mycila.license.maven.plugin.version>4.3</com.mycila.license.maven.plugin.version>
     <!-- TODO Remove if Quarkus updates Netty in 3.2 -->
     <io.netty.version>4.1.101.Final</io.netty.version>
