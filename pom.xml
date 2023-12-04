@@ -23,7 +23,7 @@
     <quarkus.platform.version>3.2.4.Final</quarkus.platform.version>
     <surefire-plugin.version>3.2.2</surefire-plugin.version>
     <assembly-plugin.version>3.6.0</assembly-plugin.version>
-    <com.diffplug.spotless.maven.plugin.version>2.41.0</com.diffplug.spotless.maven.plugin.version>
+    <com.diffplug.spotless.maven.plugin.version>2.41.1</com.diffplug.spotless.maven.plugin.version>
     <org.codehaus.mojo.build.helper.plugin.version>3.5.0</org.codehaus.mojo.build.helper.plugin.version>
     <io.cryostat.core.version>2.24.0</io.cryostat.core.version>
     <org.jsoup.version>1.16.2</org.jsoup.version>
