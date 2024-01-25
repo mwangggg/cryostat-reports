@@ -66,12 +66,10 @@ jobs:
     - name: maven-settings
       uses: s4u/maven-settings-action@v2
       with:
-        servers: '[{"id": "github", "username": "dummy", "password": "${env.GITHUB_TOKEN_REF}"}]'
+        servers: '[{"id": "github", "username": "dummy", "password": "${ secrets.GITHUB_TOKEN }"}]'
         githubServer: false
     - name: Build application
       run: ./mvnw -Dquarkus.container-image.build=false -B -U clean verify
-      env:
-        GITHUB_TOKEN_REF: ${{ secrets.GH_PKGS_READ_TOKEN }}
     - name: Build container images and manifest
       id: buildah-build
       uses: redhat-actions/buildah-build@v2
