@@ -78,6 +78,8 @@ jobs:
         githubServer: true
     - name: Build application
       run: ./mvnw -Dquarkus.container-image.build=false -B -U clean verify
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Build container images and manifest
       id: buildah-build
       uses: redhat-actions/buildah-build@v2
